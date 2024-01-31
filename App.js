@@ -6,9 +6,14 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  Alert,
 } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { theme } from "./colors";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { Fontisto } from "@expo/vector-icons";
+
+const STORAGE_KEY = "@toDos";
 
 export default function App() {
   const [working, setWorking] = useState(true);
@@ -20,22 +25,59 @@ export default function App() {
 
   const onChangeText = (payload) => setText(payload);
 
+  /**
+   * toDos를 모바일 localstorage에 저장하는 함수
+   */
+  const saveTodosInStorage = async (toSave) => {
+    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(toSave));
+  };
+
+  const loadToDosFromStorage = async () => {
+    if (await AsyncStorage.getItem(STORAGE_KEY)) {
+      setToDos(JSON.parse(await AsyncStorage.getItem(STORAGE_KEY)));
+    }
+  };
+
   const addTodo = () => {
     if (text === "") {
       return;
     }
+    //동기적 처리를 위해 새로운 변수를 만들어서 처리함.
     setToDos((prev) => {
-      return {
+      const newTodos = {
         ...prev,
         [Date.now()]: { text, working },
       };
+      saveTodosInStorage(newTodos);
+      return newTodos;
     });
 
     alert(text);
     setText("");
-    console.log(toDos);
   };
 
+  const deleteTodo = (id) => {
+    Alert.alert("Delete To Do?", "Are you sure?", [
+      {
+        text: "Cancel",
+        style: "cancel",
+      },
+      {
+        text: "I'm Sure",
+        style: "destructive",
+        onPress: () => {
+          const newTodos = { ...toDos };
+          delete newTodos[id];
+          setToDos(newTodos);
+          saveTodosInStorage(newTodos);
+        },
+      },
+    ]);
+  };
+
+  useEffect(() => {
+    loadToDosFromStorage();
+  }, []);
   return (
     <View style={styles.container}>
       <StatusBar style="auto" />
@@ -70,6 +112,14 @@ export default function App() {
           toDos[key].working === working ? ( //toDos에서 working이 현재 working과 같은 것만 보여줌. false면 false인 것만 보여주는데 이것이 travel임.
             <View key={key} style={styles.toDo}>
               <Text style={styles.toDoText}>{toDos[key].text}</Text>
+              <TouchableOpacity
+                activeOpacity={0.6}
+                onPress={() => {
+                  deleteTodo(key);
+                }}
+              >
+                <Fontisto name="trash" size={20} color="white" />
+              </TouchableOpacity>
             </View>
           ) : null
         )}
@@ -109,6 +159,9 @@ const styles = StyleSheet.create({
     paddingVertical: 20,
     paddingHorizontal: 20,
     borderRadius: 15,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
   },
   toDoText: {
     color: "white",
